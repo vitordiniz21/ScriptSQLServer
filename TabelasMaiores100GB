@@ -1,0 +1,33 @@
+WITH TamanhoDasTabelas AS (
+    SELECT 
+        s.name AS SchemaName,
+        t.name AS TableName,
+        p.rows AS RowCounts,
+        SUM(a.total_pages) * 8 AS SizeKB,
+        CAST(SUM(a.total_pages) * 8.0 / 1024 AS DECIMAL(18,2)) AS SizeMB,
+        CAST(SUM(a.total_pages) * 8.0 / 1024 / 1024 AS DECIMAL(18,2)) AS SizeGB
+    FROM 
+        sys.tables t
+        INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+        INNER JOIN sys.indexes i ON t.object_id = i.object_id
+        INNER JOIN sys.partitions p ON i.object_id = p.object_id AND i.index_id = p.index_id
+        INNER JOIN sys.allocation_units a ON p.partition_id = a.container_id
+    WHERE 
+        t.is_ms_shipped = 0 -- ignora tabelas do sistema
+    GROUP BY 
+        s.name, t.name, p.rows
+)
+SELECT 
+    SchemaName,
+    TableName,
+    SchemaName + '.' + TableName AS FullTableName,
+    RowCounts,
+    SizeKB,
+    SizeMB,
+    SizeGB
+FROM 
+    TamanhoDasTabelas
+WHERE 
+    SizeGB > 100
+ORDER BY 
+    SizeGB DESC;
